@@ -248,6 +248,119 @@ files:
         }
     }
   learner_created: false
-feedback_link: https://hyperskill.org/projects/91/stages/505/implement#comment
-status: Unchecked
+- name: src/engine/Quiz.java
+  visible: true
+  text: |
+    package engine;
+
+    import java.util.ArrayList;
+    import java.util.List;
+
+    public class Quiz {
+        private String title;
+        private String text;
+        private List<String> options;
+
+        public Quiz() {
+            options = new ArrayList<>(4);
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public List<String> getOptions() {
+            return options;
+        }
+
+        public void setOptions(List<String> options) {
+            this.options = options;
+        }
+
+        public boolean addOption(String opt) {
+            if (options.size() > 4) {
+                return false;
+            }
+            return options.add(opt);
+        }
+    }
+  learner_created: true
+- name: src/engine/QuizController.java
+  visible: true
+  text: |
+    package engine;
+
+    import org.springframework.web.bind.annotation.GetMapping;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.RequestParam;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import java.util.ArrayList;
+    import java.util.List;
+    import java.util.Map;
+
+    @RestController
+    public class QuizController {
+
+        private List<Quiz> quizzes = new ArrayList<>();
+
+        public QuizController() {
+
+            Quiz quiz = new Quiz();
+            quiz.setTitle("The Java Logo");
+            quiz.setText("What is depicted on the Java logo?");
+            quiz.addOption("Robot");
+            quiz.addOption("Tea leaf");
+            quiz.addOption("Cup of coffee");
+            quiz.addOption("Bug");
+            quizzes.add(quiz);
+        }
+
+        @GetMapping("/api/quiz")
+        public Object getQuiz() {
+            return quizzes.get(0);
+        }
+
+        @PostMapping("/api/quiz")
+        public Object postAnswer(@RequestParam int answer) {
+
+            if (answer == 2) {
+                return Map.of(
+                        "success",true,
+                        "feedback", "Congratulations, you're right!"
+                );
+            } else {
+                return Map.of(
+                        "success",false,
+                        "feedback", "Wrong answer! Please, try again."
+                );
+            }
+
+        }
+
+    }
+  learner_created: true
+- name: src/engine/QuizStore.java
+  visible: true
+  learner_created: true
+- name: src/engine/IDGen.java
+  visible: true
+  learner_created: true
+feedback_link: https://hyperskill.org/learn/step/8253#comment
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Mon, 07 Feb 2022 13:13:44 UTC
 record: -1

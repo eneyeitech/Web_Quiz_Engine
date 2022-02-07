@@ -1,9 +1,9 @@
 package engine;
 
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -12,29 +12,44 @@ import java.util.Map;
 @RestController
 public class QuizController {
 
-    private List<Quiz> quizzes = new ArrayList<>();
+    @Autowired
+    QuizStore quizStore;
 
-    public QuizController() {
+    @GetMapping("/api/quizzes/{id}")
+    public Object getQuiz(@PathVariable int id) {
+        Quiz q = quizStore.getQuiz(id);
+        if (q == null) {
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
 
-        Quiz quiz = new Quiz();
-        quiz.setTitle("The Java Logo");
-        quiz.setText("What is depicted on the Java logo?");
-        quiz.addOption("Robot");
-        quiz.addOption("Tea leaf");
-        quiz.addOption("Cup of coffee");
-        quiz.addOption("Bug");
-        quizzes.add(quiz);
+        return new ResponseEntity<>(Map.of(
+                "id", q.getId(),
+                "title", q.getTitle(),
+                "text", q.getText(),
+                "options",q.getOptions()
+        ), HttpStatus.OK);
     }
 
-    @GetMapping("/api/quiz")
-    public Object getQuiz() {
-        return quizzes.get(0);
+    @PostMapping("/api/quizzes")
+    public Object postQuizzes(@RequestBody Quiz quiz) {
+        quiz.setId(IDGen.getId());
+        quizStore.addQuiz(quiz);
+
+        return new ResponseEntity<>(Map.of(
+                "id", quiz.getId(),
+                "title", quiz.getTitle(),
+                "text", quiz.getText(),
+                "options",quiz.getOptions()
+        ), HttpStatus.OK);
     }
 
-    @PostMapping("/api/quiz")
-    public Object postAnswer(@RequestParam int answer) {
-
-        if (answer == 2) {
+    @PostMapping("/api/quizzes/{id}/solve")
+    public Object postAnswer(@PathVariable int id, @RequestParam int answer) {
+        Quiz q = quizStore.getQuiz(id);
+        if (q == null){
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+        if (q.getAnswer() == answer) {
             return Map.of(
                     "success",true,
                     "feedback", "Congratulations, you're right!"
@@ -47,5 +62,12 @@ public class QuizController {
         }
 
     }
+
+    @GetMapping("/api/quizzes")
+    public Object getAllQuizzes() {
+        return quizStore.getAllQuiz();
+    }
+
+
 
 }

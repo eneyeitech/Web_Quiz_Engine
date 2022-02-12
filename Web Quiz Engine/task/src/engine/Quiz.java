@@ -2,14 +2,20 @@ package engine;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 
+import javax.validation.constraints.NotEmpty;
+import javax.validation.constraints.Size;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Quiz {
+
+    @NotEmpty
     private String title;
+    @NotEmpty
     private String text;
+    @Size(min = 2)
     private List<String> options;
-    private int answer;
+    private List<Integer> answer;
     private long id;
 
     public Quiz() {
@@ -40,11 +46,11 @@ public class Quiz {
         this.options = options;
     }
 
-    public int getAnswer() {
+    public List<Integer> getAnswer() {
         return answer;
     }
 
-    public void setAnswer(int answer) {
+    public void setAnswer(List<Integer> answer) {
         this.answer = answer;
     }
 
@@ -61,6 +67,13 @@ public class Quiz {
             return false;
         }
         return options.add(opt);
+    }
+
+    public boolean addAnswer(int ans) {
+        if (answer.size() > 4) {
+            return false;
+        }
+        return answer.add(ans);
     }
 
     @Override

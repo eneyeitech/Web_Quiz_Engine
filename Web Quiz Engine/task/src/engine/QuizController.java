@@ -5,9 +5,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import javax.validation.Valid;
+import java.util.*;
+import java.util.function.Supplier;
 
 @RestController
 public class QuizController {
@@ -31,7 +31,7 @@ public class QuizController {
     }
 
     @PostMapping("/api/quizzes")
-    public Object postQuizzes(@RequestBody Quiz quiz) {
+    public Object postQuizzes(@Valid @RequestBody Quiz quiz) {
         quiz.setId(IDGen.getId());
         quizStore.addQuiz(quiz);
 
@@ -44,12 +44,32 @@ public class QuizController {
     }
 
     @PostMapping("/api/quizzes/{id}/solve")
-    public Object postAnswer(@PathVariable int id, @RequestParam int answer) {
+    public Object postAnswer(@PathVariable int id, @RequestBody Answer answer) {
         Quiz q = quizStore.getQuiz(id);
+        System.out.println("post answer: "+answer+" question" +q);
         if (q == null){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
-        if (q.getAnswer() == answer) {
+
+        List<Integer> aList = q.getAnswer();
+        List<Integer> sList = answer.getAnswer();
+
+        if(aList == null) {
+            if (sList.size() == 0) {
+                return Map.of(
+                        "success",true,
+                        "feedback", "Congratulations, you're right!"
+                );
+            } else {
+                return Map.of(
+                        "success",false,
+                        "feedback", "Wrong answer! Please, try again."
+                );
+            }
+        }
+
+        if (aList.equals(sList)) {
+
             return Map.of(
                     "success",true,
                     "feedback", "Congratulations, you're right!"

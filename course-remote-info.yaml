@@ -3,7 +3,7 @@ hyperskill_project:
   ide_files: https://stepik.org/media/attachments/lesson/287312/additional_files.json
   is_template_based: false
   use_ide: true
-update_date: Mon, 07 Feb 2022 12:54:39 UTC
+update_date: Sat, 12 Feb 2022 17:11:02 UTC
 stages:
 - id: 504
   step: 8252
@@ -13,7 +13,7 @@ stages:
   is_completed: true
 - id: 506
   step: 8254
-  is_completed: false
+  is_completed: true
 - id: 507
   step: 8255
   is_completed: false
@@ -310,6 +310,8 @@ topics:
     theory_id: 8762
   - title: Introduction to JPA
     theory_id: 17125
+  - title: Entities
+    theory_id: 18135
   - title: JPA relationships
     theory_id: 17787
   - title: '@Bean vs @Component'

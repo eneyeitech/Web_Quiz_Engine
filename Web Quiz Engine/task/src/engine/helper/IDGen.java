@@ -1,4 +1,4 @@
-package engine;
+package engine.helper;
 
 public class IDGen {
     private static long id = 0;

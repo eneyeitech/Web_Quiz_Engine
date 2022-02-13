@@ -1,5 +1,10 @@
-package engine;
+package engine.presentation;
 
+import engine.business.Answer;
+import engine.business.QuizService;
+import engine.helper.IDGen;
+import engine.business.Quiz;
+import engine.database.QuizStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -7,17 +12,16 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.*;
-import java.util.function.Supplier;
 
 @RestController
 public class QuizController {
 
     @Autowired
-    QuizStore quizStore;
+    QuizService quizService;
 
     @GetMapping("/api/quizzes/{id}")
     public Object getQuiz(@PathVariable int id) {
-        Quiz q = quizStore.getQuiz(id);
+        Quiz q = quizService.findQuizById(id);
         if (q == null) {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
@@ -32,20 +36,20 @@ public class QuizController {
 
     @PostMapping("/api/quizzes")
     public Object postQuizzes(@Valid @RequestBody Quiz quiz) {
-        quiz.setId(IDGen.getId());
-        quizStore.addQuiz(quiz);
+        //quiz.setId(IDGen.getId());
+        Quiz savedQuiz = quizService.saveQuiz(quiz);
 
         return new ResponseEntity<>(Map.of(
-                "id", quiz.getId(),
-                "title", quiz.getTitle(),
-                "text", quiz.getText(),
-                "options",quiz.getOptions()
+                "id", savedQuiz.getId(),
+                "title", savedQuiz.getTitle(),
+                "text", savedQuiz.getText(),
+                "options",savedQuiz.getOptions()
         ), HttpStatus.OK);
     }
 
     @PostMapping("/api/quizzes/{id}/solve")
     public Object postAnswer(@PathVariable int id, @RequestBody Answer answer) {
-        Quiz q = quizStore.getQuiz(id);
+        Quiz q = quizService.findQuizById(id);
         System.out.println("post answer: "+answer+" question" +q);
         if (q == null){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -53,7 +57,8 @@ public class QuizController {
 
         List<Integer> aList = q.getAnswer();
         List<Integer> sList = answer.getAnswer();
-
+        Collections.sort(aList);
+        Collections.sort(sList);
         if(aList == null) {
             if (sList.size() == 0) {
                 return Map.of(
@@ -85,7 +90,7 @@ public class QuizController {
 
     @GetMapping("/api/quizzes")
     public Object getAllQuizzes() {
-        return quizStore.getAllQuiz();
+        return quizService.all();
     }
 
 

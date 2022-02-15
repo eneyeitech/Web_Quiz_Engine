@@ -27,6 +27,9 @@ public class Quiz {
     @OneToMany(mappedBy = "quiz")
     private List<Options> quizOptions = new ArrayList<>();
 
+    @ManyToOne
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @ManyToMany(cascade = {
             CascadeType.PERSIST,
@@ -122,6 +125,14 @@ public class Quiz {
 
     public void addOption(String s) {
         options.add(s);
+    }
+
+    public User getUser() {
+        return user;
+    }
+
+    public void setUser(User user) {
+        this.user = user;
     }
 
     @Override

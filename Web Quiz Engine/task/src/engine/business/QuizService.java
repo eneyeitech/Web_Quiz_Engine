@@ -29,6 +29,30 @@ public class QuizService {
         return quizRepository.save(toSave);
     }
 
+    public void delete(long id) {
+        Quiz quizToDelete = findQuizById(id);
+        deleteQuestions(quizToDelete);
+        quizRepository.delete(quizToDelete);
+        deleteAnswers(quizToDelete);
+    }
+
+    public void deleteQuestions(Quiz toDelete){
+
+        List<Options> optionsList = toDelete.getQuizOptions();
+        for (Options o: optionsList) {
+            optionsRepository.delete(o);
+        }
+    }
+
+    public void deleteAnswers(Quiz toDelete){
+        Set<Answers> answersSet = toDelete.getQuizAnswers();
+
+
+        for (Answers a: answersSet) {
+            answersRepository.delete(a);
+        }
+    }
+
     public Quiz saveQuiz(Quiz toSave) {
         updateQuizAnswers(toSave);
         Quiz savedQuiz = quizRepository.save(toSave);
@@ -51,6 +75,14 @@ public class QuizService {
             updateQuiz(quizToReturn);
         }
         return quizToReturn;
+    }
+
+    public boolean hasQuiz(long id) {
+        Quiz quiz = findQuizById(id);
+        if (quiz != null) {
+            return true;
+        }
+        return false;
     }
 
     private void updateQuiz(Quiz quizToUpdate) {

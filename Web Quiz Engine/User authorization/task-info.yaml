@@ -666,6 +666,639 @@ files:
         }
     }
   learner_created: false
+- name: src/engine/business/QuizService.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import engine.persistence.IAnswersRepository;
+    import engine.persistence.IOptionsRepository;
+    import engine.persistence.IQuizRepository;
+    import engine.persistence.QuizRepository;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.stereotype.Service;
+
+    import java.util.*;
+
+    @Service
+    public class QuizService {
+        //private final QuizRepository quizRepository;
+        private final IQuizRepository quizRepository;
+        private final IAnswersRepository answersRepository;
+        private final IOptionsRepository optionsRepository;
+
+        @Autowired
+        public QuizService(IOptionsRepository optionsRepository,
+                           IAnswersRepository answersRepository,
+                           IQuizRepository quizRepository) {
+            this.quizRepository = quizRepository;
+            this.answersRepository = answersRepository;
+            this.optionsRepository = optionsRepository;
+        }
+
+        public Quiz save(Quiz toSave) {
+            return quizRepository.save(toSave);
+        }
+
+        public Quiz saveQuiz(Quiz toSave) {
+            updateQuizAnswers(toSave);
+            Quiz savedQuiz = quizRepository.save(toSave);
+            updateQuizOptions(savedQuiz);
+            return savedQuiz;
+        }
+
+        public Answers saveAnswers(Answers toSave) {
+            return answersRepository.save(toSave);
+        }
+
+        public Options saveOptions(Options toSave) {
+            return optionsRepository.save(toSave);
+        }
+
+        public Quiz findQuizById(long id) {
+            Optional<Quiz> quiz = quizRepository.findById(id);
+            Quiz quizToReturn = quiz.orElse(null);
+            if (quizToReturn != null) {
+                updateQuiz(quizToReturn);
+            }
+            return quizToReturn;
+        }
+
+        private void updateQuiz(Quiz quizToUpdate) {
+            Set<Answers> answersSet = quizToUpdate.getQuizAnswers();
+            List<Options> optionsList = quizToUpdate.getQuizOptions();
+
+            for (Answers a: answersSet) {
+                quizToUpdate.addAnswer(a.getAnswer());
+            }
+
+            for (Options o: optionsList) {
+                quizToUpdate.addOption(o.getOption());
+            }
+        }
+
+        public Collection<Object> all() {
+            Collection<Object> quizCollection = new ArrayList<>();
+            quizRepository.findAll().forEach(quiz -> {
+                updateQuiz(quiz);
+                quizCollection.add(Map.of(
+                        "id", quiz.getId(),
+                        "title", quiz.getTitle(),
+                        "text", quiz.getText(),
+                        "options",quiz.getOptions()
+                ));
+            });
+            return quizCollection;
+        }
+
+        private void updateQuizAnswers(Quiz quizToUpdate) {
+            List<Integer> answers = quizToUpdate.getAnswer();
+
+            for (Integer i: answers) {
+                Answers answerToSave = new Answers();
+                answerToSave.setAnswer(i);
+                Answers savedAnswer = saveAnswers(answerToSave);
+                quizToUpdate.addQuizAnswer(savedAnswer);
+            }
+
+
+        }
+
+        private void updateQuizOptions(Quiz quizToUpdate) {
+            List<String> options = quizToUpdate.getOptions();
+            for (String s: options) {
+                Options optionToSave = new Options();
+                optionToSave.setOption(s);
+                optionToSave.setQuiz(quizToUpdate);
+                Options savedOption = saveOptions(optionToSave);
+                quizToUpdate.addQuizOption(savedOption);
+            }
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Answers.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import javax.persistence.*;
+    import java.util.Set;
+
+    @Entity
+    public class Answers {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+        private int answer;
+
+        public Answers() {
+        }
+
+        @ManyToMany(mappedBy = "quizAnswers", fetch = FetchType.EAGER )
+        private Set<Quiz> quizzes;
+
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public int getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(int answer) {
+            this.answer = answer;
+        }
+
+        public Set<Quiz> getQuizzes() {
+            return quizzes;
+        }
+
+        public void setQuizzes(Set<Quiz> quizzes) {
+            this.quizzes = quizzes;
+        }
+
+        @Override
+        public String toString() {
+            return "Answers{" +
+                    "id=" + id +
+                    ", answer=" + answer +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Quiz.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import com.fasterxml.jackson.annotation.JsonIgnore;
+
+    import javax.persistence.*;
+    import javax.validation.constraints.NotEmpty;
+    import javax.validation.constraints.Size;
+    import java.util.ArrayList;
+    import java.util.HashSet;
+    import java.util.List;
+    import java.util.Set;
+
+    @Entity
+    public class Quiz {
+
+        @NotEmpty
+        private String title;
+        @NotEmpty
+        private String text;
+        @Size(min = 2)
+
+        @Transient
+        private List<String> options;
+        @Transient
+        private List<Integer> answer;
+
+        @OneToMany(mappedBy = "quiz")
+        private List<Options> quizOptions = new ArrayList<>();
+
+
+        @ManyToMany(cascade = {
+                CascadeType.PERSIST,
+                CascadeType.MERGE
+        }, fetch = FetchType.EAGER)
+        @JoinTable(name = "quiz_answers",
+                joinColumns =@JoinColumn(name = "quiz_id"),
+                inverseJoinColumns = @JoinColumn(name = "answer_id"
+                ))
+        private Set<Answers> quizAnswers = new HashSet<>();
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+
+        public Quiz() {
+            options = new ArrayList<>(4);
+            answer = new ArrayList<>(4);
+            quizOptions = new ArrayList<>(4);
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public List<Options> getQuizOptions() {
+            return quizOptions;
+        }
+
+        public void setQuizOptions(List<Options> quizOptions) {
+            this.quizOptions = quizOptions;
+        }
+
+        public Set<Answers> getQuizAnswers() {
+            return quizAnswers;
+        }
+
+        public void setQuizAnswers(Set<Answers> quizAnswers) {
+            this.quizAnswers = quizAnswers;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public List<String> getOptions() {
+            return options;
+        }
+
+        public void setOptions(List<String> options) {
+            this.options = options;
+        }
+
+        public List<Integer> getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(List<Integer> answer) {
+            this.answer = answer;
+        }
+
+        public void addQuizAnswer(Answers answerToAdd) {
+            quizAnswers.add(answerToAdd);
+        }
+
+        public void addQuizOption(Options optionToAdd) {
+            quizOptions.add(optionToAdd);
+        }
+
+        public void addAnswer(int i) {
+            answer.add(i);
+        }
+
+        public void addOption(String s) {
+            options.add(s);
+        }
+
+        @Override
+        public String toString() {
+            return "Quiz{" +
+                    "title='" + title + '\'' +
+                    ", text='" + text + '\'' +
+                    ", options=" + options +
+                    ", answer=" + answer +
+                    ", id=" + id +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/IOptionsRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Options;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IOptionsRepository extends CrudRepository<Options, Long> {
+    }
+  learner_created: true
+- name: src/engine/helper/IDGen.java
+  visible: true
+  text: |
+    package engine.helper;
+
+    public class IDGen {
+        private static long id = 0;
+
+        public static long getId() {
+            return ++id;
+        }
+    }
+  learner_created: true
+- name: src/engine/presentation/QuizController.java
+  visible: true
+  text: |
+    package engine.presentation;
+
+    import engine.business.Answer;
+    import engine.business.QuizService;
+    import engine.helper.IDGen;
+    import engine.business.Quiz;
+    import engine.database.QuizStore;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.web.bind.annotation.*;
+
+    import javax.validation.Valid;
+    import java.util.*;
+
+    @RestController
+    public class QuizController {
+
+        @Autowired
+        QuizService quizService;
+
+        @GetMapping("/api/quizzes/{id}")
+        public Object getQuiz(@PathVariable int id) {
+            Quiz q = quizService.findQuizById(id);
+            if (q == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            return new ResponseEntity<>(Map.of(
+                    "id", q.getId(),
+                    "title", q.getTitle(),
+                    "text", q.getText(),
+                    "options",q.getOptions()
+            ), HttpStatus.OK);
+        }
+
+        @PostMapping("/api/quizzes")
+        public Object postQuizzes(@Valid @RequestBody Quiz quiz) {
+            //quiz.setId(IDGen.getId());
+            Quiz savedQuiz = quizService.saveQuiz(quiz);
+
+            return new ResponseEntity<>(Map.of(
+                    "id", savedQuiz.getId(),
+                    "title", savedQuiz.getTitle(),
+                    "text", savedQuiz.getText(),
+                    "options",savedQuiz.getOptions()
+            ), HttpStatus.OK);
+        }
+
+        @PostMapping("/api/quizzes/{id}/solve")
+        public Object postAnswer(@PathVariable int id, @RequestBody Answer answer) {
+            Quiz q = quizService.findQuizById(id);
+            System.out.println("post answer: "+answer+" question" +q);
+            if (q == null){
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            List<Integer> aList = q.getAnswer();
+            List<Integer> sList = answer.getAnswer();
+            Collections.sort(aList);
+            Collections.sort(sList);
+            if(aList == null) {
+                if (sList.size() == 0) {
+                    return Map.of(
+                            "success",true,
+                            "feedback", "Congratulations, you're right!"
+                    );
+                } else {
+                    return Map.of(
+                            "success",false,
+                            "feedback", "Wrong answer! Please, try again."
+                    );
+                }
+            }
+
+            if (aList.equals(sList)) {
+
+                return Map.of(
+                        "success",true,
+                        "feedback", "Congratulations, you're right!"
+                );
+            } else {
+                return Map.of(
+                        "success",false,
+                        "feedback", "Wrong answer! Please, try again."
+                );
+            }
+
+        }
+
+        @GetMapping("/api/quizzes")
+        public Object getAllQuizzes() {
+            return quizService.all();
+        }
+
+
+
+    }
+  learner_created: true
+- name: src/engine/business/Answer.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import java.util.List;
+
+    public class Answer {
+        private List<Integer> answer;
+
+        public Answer(){}
+
+        public List<Integer> getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(List<Integer> answer) {
+            this.answer = answer;
+        }
+
+        @Override
+        public String toString() {
+            return "Answer{" +
+                    "answer=" + answer +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Options.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import javax.persistence.*;
+
+    @Entity
+    public class Options {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+        private String option;
+
+        @ManyToOne
+        @JoinColumn(name = "quiz_id")
+        private Quiz quiz;
+
+        public Options() {
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public String getOption() {
+            return option;
+        }
+
+        public void setOption(String option) {
+            this.option = option;
+        }
+
+        public Quiz getQuiz() {
+            return quiz;
+        }
+
+        public void setQuiz(Quiz quiz) {
+            this.quiz = quiz;
+        }
+
+        @Override
+        public String toString() {
+            return "Options{" +
+                    "id=" + id +
+                    ", option='" + option + '\'' +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/database/QuizStore.java
+  visible: true
+  text: |
+    package engine.database;
+
+    import engine.business.Quiz;
+    import org.springframework.stereotype.Component;
+
+    import java.util.Collection;
+    import java.util.Map;
+    import java.util.concurrent.ConcurrentHashMap;
+
+    @Component
+    public class QuizStore {
+
+        private Map<Long, Quiz> quizzes = new ConcurrentHashMap<>();;
+
+        {
+           /** Quiz quiz = new Quiz();
+            quiz.setId(IDGen.getId());
+            quiz.setTitle("The Java Logo");
+            quiz.setText("What is depicted on the Java logo?");
+            quiz.addOption("Robot");
+            quiz.addOption("Tea leaf");
+            quiz.addOption("Cup of coffee");
+            quiz.addOption("Bug");
+            quiz.setAnswer(2);
+            quizzes.put(quiz.getId(), quiz);*/
+        }
+
+        public void addQuiz(Quiz quiz) {
+            System.out.println(quiz);
+            quizzes.put(quiz.getId(), quiz);
+        }
+
+        public Quiz getQuiz(long id) {
+            System.out.println(id);
+            return quizzes.get(id);
+        }
+
+        public Collection<Quiz> getAllQuiz() {
+            Collection<Quiz> list =  quizzes.values();
+            return list;
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/QuizRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.database.QuizStore;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public class QuizRepository extends QuizStore {
+    }
+  learner_created: true
+- name: src/engine/persistence/IQuizRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Quiz;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IQuizRepository extends CrudRepository<Quiz, Long> {
+    }
+  learner_created: true
+- name: src/engine/persistence/IAnswersRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Answers;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IAnswersRepository extends CrudRepository<Answers, Long> {
+    }
+  learner_created: true
+- name: src/engine/business/User.java
+  visible: true
+  learner_created: true
+- name: src/engine/presentation/UserController.java
+  visible: true
+  learner_created: true
+- name: src/engine/persistence/IUserRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/business/UserService.java
+  visible: true
+  learner_created: true
+- name: src/engine/business/UserDetailImpl.java
+  visible: true
+  learner_created: true
+- name: src/engine/business/UserDetailServiceImpl.java
+  visible: true
+  learner_created: true
+- name: src/engine/helper/WebSecurityConfigurerImpl.java
+  visible: true
+  learner_created: true
+- name: src/engine/helper/BCryptEncoderConfig.java
+  visible: true
+  learner_created: true
+- name: src/engine/helper/RestAuthenticationEntryPoint.java
+  visible: true
+  learner_created: true
+- name: src/engine/helper/CustomAccessDeniedHandler.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/8256#comment
-status: Unchecked
+status: Solved
+feedback:
+  message: Congratulations!
+  time: Tue, 15 Feb 2022 11:53:17 UTC
 record: -1

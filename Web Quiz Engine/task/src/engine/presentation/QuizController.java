@@ -1,13 +1,12 @@
 package engine.presentation;
 
-import engine.business.Answer;
-import engine.business.QuizService;
+import engine.business.*;
 import engine.helper.IDGen;
-import engine.business.Quiz;
 import engine.database.QuizStore;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
@@ -18,6 +17,9 @@ public class QuizController {
 
     @Autowired
     QuizService quizService;
+
+    @Autowired
+    UserService userService;
 
     @GetMapping("/api/quizzes/{id}")
     public Object getQuiz(@PathVariable int id) {
@@ -35,8 +37,17 @@ public class QuizController {
     }
 
     @PostMapping("/api/quizzes")
-    public Object postQuizzes(@Valid @RequestBody Quiz quiz) {
+    public Object postQuizzes(@AuthenticationPrincipal UserDetailImpl details, @Valid @RequestBody Quiz quiz) {
         //quiz.setId(IDGen.getId());
+
+        if (details == null) {
+            return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+        } else {
+
+            User user = details.getUser();
+            quiz.setUser(user);
+        }
+
         Quiz savedQuiz = quizService.saveQuiz(quiz);
 
         return new ResponseEntity<>(Map.of(
@@ -48,8 +59,10 @@ public class QuizController {
     }
 
     @PostMapping("/api/quizzes/{id}/solve")
-    public Object postAnswer(@PathVariable int id, @RequestBody Answer answer) {
+    public Object postAnswer( @PathVariable int id, @RequestBody Answer answer) {
+
         Quiz q = quizService.findQuizById(id);
+
         System.out.println("post answer: "+answer+" question" +q);
         if (q == null){
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
@@ -91,6 +104,31 @@ public class QuizController {
     @GetMapping("/api/quizzes")
     public Object getAllQuizzes() {
         return quizService.all();
+    }
+
+    @DeleteMapping("/api/quizzes/{id}")
+    public Object deleteQuiz(@AuthenticationPrincipal UserDetailImpl details, @PathVariable int id) {
+        if (details == null) {
+            return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+        } else {
+
+            User user = details.getUser();
+            Quiz quiz = quizService.findQuizById(id);
+
+            if (quiz != null) {
+                User userWhomSavedQuiz = userService.findUserById(quiz.getUser().getId());
+                if (user.getEmail().equalsIgnoreCase(userWhomSavedQuiz.getEmail())) {
+                    quizService.delete(id);
+                    return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+                } else {
+                    return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                }
+            }
+
+            return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+        }
+
+
     }
 
 

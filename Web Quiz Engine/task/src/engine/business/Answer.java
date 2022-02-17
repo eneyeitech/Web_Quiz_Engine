@@ -1,17 +1,18 @@
 package engine.business;
 
 import java.util.List;
+import java.util.Set;
 
 public class Answer {
-    private List<Integer> answer;
+    private Set<Integer> answer;
 
     public Answer(){}
 
-    public List<Integer> getAnswer() {
+    public Set<Integer> getAnswer() {
         return answer;
     }
 
-    public void setAnswer(List<Integer> answer) {
+    public void setAnswer(Set<Integer> answer) {
         this.answer = answer;
     }
 

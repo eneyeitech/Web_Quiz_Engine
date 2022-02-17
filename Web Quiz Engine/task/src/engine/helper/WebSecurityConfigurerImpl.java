@@ -51,6 +51,7 @@ public class WebSecurityConfigurerImpl extends WebSecurityConfigurerAdapter {
                 .mvcMatchers(HttpMethod.POST, "/api/quizzes/{id}/solve").authenticated()
                 .mvcMatchers(HttpMethod.GET, "/api/quizzes/{id}").authenticated()
                 .mvcMatchers(HttpMethod.GET, "/api/quizzes").authenticated()
+                .mvcMatchers(HttpMethod.GET, "/api/quizzes/completed").authenticated()
                 .mvcMatchers(HttpMethod.POST, "/api/quizzes").authenticated()
                 .mvcMatchers(HttpMethod.DELETE, "/api/quizzes/{id}").authenticated()
                 .and()

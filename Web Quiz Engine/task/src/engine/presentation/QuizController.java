@@ -19,7 +19,13 @@ public class QuizController {
     QuizService quizService;
 
     @Autowired
+    QuizPagingAndSortingService quizPagingAndSortingService;
+
+    @Autowired
     UserService userService;
+
+    @Autowired
+    CompletionService completionService;
 
     @GetMapping("/api/quizzes/{id}")
     public Object getQuiz(@PathVariable int id) {
@@ -59,7 +65,7 @@ public class QuizController {
     }
 
     @PostMapping("/api/quizzes/{id}/solve")
-    public Object postAnswer( @PathVariable int id, @RequestBody Answer answer) {
+    public Object postAnswer(@AuthenticationPrincipal UserDetailImpl details, @PathVariable int id, @RequestBody Answer answer) {
 
         Quiz q = quizService.findQuizById(id);
 
@@ -68,12 +74,29 @@ public class QuizController {
             return new ResponseEntity<>(HttpStatus.NOT_FOUND);
         }
 
-        List<Integer> aList = q.getAnswer();
-        List<Integer> sList = answer.getAnswer();
+        List<Integer> aa = q.getAnswer();
+        Set<Integer> as = new HashSet<>(aa);
+        List<Integer> aList = new ArrayList<>(as);
+        Set<Integer> ss = answer.getAnswer();
         Collections.sort(aList);
+        List<Integer> sList = new ArrayList<>(ss);
         Collections.sort(sList);
+
         if(aList == null) {
             if (sList.size() == 0) {
+                if (details == null) {
+                    return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+                } else {
+
+                    User user = details.getUser();
+
+                    Completion completion = new Completion();
+                    completion.setQuiz(q);
+                    completion.setUserId(user.getId());
+                    completionService.save(completion);
+                    System.out.println(completion);
+                }
+
                 return Map.of(
                         "success",true,
                         "feedback", "Congratulations, you're right!"
@@ -86,8 +109,19 @@ public class QuizController {
             }
         }
 
-        if (aList.equals(sList)) {
+        if (Objects.equals(aList,sList)) {
+            if (details == null) {
+                return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+            } else {
 
+                User user = details.getUser();
+
+                Completion completion = new Completion();
+                completion.setQuiz(q);
+                completion.setUserId(user.getId());
+                completionService.save(completion);
+                System.out.println(completion);
+            }
             return Map.of(
                     "success",true,
                     "feedback", "Congratulations, you're right!"
@@ -99,11 +133,18 @@ public class QuizController {
             );
         }
 
+
     }
 
     @GetMapping("/api/quizzes")
-    public Object getAllQuizzes() {
-        return quizService.all();
+    public Object getAllQuizzes(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sort
+    ) {
+        //return quizService.all();
+
+        return  quizPagingAndSortingService.getAllQuiz(page, size, sort);
     }
 
     @DeleteMapping("/api/quizzes/{id}")
@@ -129,6 +170,17 @@ public class QuizController {
         }
 
 
+    }
+
+    @GetMapping("/api/quizzes/completed")
+    public Object getAllCompletions(
+            @RequestParam(defaultValue = "0") Integer page,
+            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "id") String sort
+    ) {
+        //return quizService.all();
+
+        return  completionService.getAllCompletion(page, size, sort);
     }
 
 

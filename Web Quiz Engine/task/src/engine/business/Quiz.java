@@ -27,6 +27,10 @@ public class Quiz {
     @OneToMany(mappedBy = "quiz")
     private List<Options> quizOptions = new ArrayList<>();
 
+    @OneToMany(mappedBy = "quiz")
+    private List<Options> quizCompletion = new ArrayList<>();
+
+
     @ManyToOne
     @JoinColumn(name = "user_id")
     private User user;
@@ -133,6 +137,14 @@ public class Quiz {
 
     public void setUser(User user) {
         this.user = user;
+    }
+
+    public List<Options> getQuizCompletion() {
+        return quizCompletion;
+    }
+
+    public void setQuizCompletion(List<Options> quizCompletion) {
+        this.quizCompletion = quizCompletion;
     }
 
     @Override

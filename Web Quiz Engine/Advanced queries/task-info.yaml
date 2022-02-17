@@ -800,6 +800,1523 @@ files:
         }
     }
   learner_created: false
+- name: src/engine/helper/WebSecurityConfigurerImpl.java
+  visible: true
+  text: |
+    package engine.helper;
+
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.http.HttpMethod;
+    import org.springframework.security.config.annotation.authentication.builders.AuthenticationManagerBuilder;
+    import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+    import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+    import org.springframework.security.config.annotation.web.configuration.WebSecurityConfigurerAdapter;
+    import org.springframework.security.config.http.SessionCreationPolicy;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.crypto.password.NoOpPasswordEncoder;
+
+    @Configuration
+    @EnableWebSecurity
+    public class WebSecurityConfigurerImpl extends WebSecurityConfigurerAdapter {
+
+        @Autowired
+        UserDetailsService userDetailsService;
+
+        @Autowired
+        BCryptEncoderConfig b;
+
+        @Autowired
+        RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+
+        @Autowired
+        CustomAccessDeniedHandler customAccessDeniedHandler;
+
+        @Override
+        protected void configure(AuthenticationManagerBuilder auth) throws Exception {
+
+            auth
+                    .userDetailsService(userDetailsService) // user store 1
+                    .passwordEncoder(b.getEncoder());
+            auth
+                    .inMemoryAuthentication() // user store 2
+                    .withUser("Admin").password("hardcoded").roles("USER")
+                    .and().passwordEncoder(NoOpPasswordEncoder.getInstance());
+        }
+
+        public void configure(HttpSecurity http) throws Exception {
+            http.httpBasic()
+                    .authenticationEntryPoint(restAuthenticationEntryPoint) // Handle auth error
+                    .and()
+                    .csrf().disable().headers().frameOptions().disable() // for Postman, the H2 console
+                    .and()
+                    .authorizeRequests() // manage access
+                    .mvcMatchers(HttpMethod.POST, "/api/register").permitAll()
+                    .mvcMatchers(HttpMethod.POST, "/actuator/shutdown").permitAll()
+                    .mvcMatchers(HttpMethod.POST, "/api/quizzes/{id}/solve").authenticated()
+                    .mvcMatchers(HttpMethod.GET, "/api/quizzes/{id}").authenticated()
+                    .mvcMatchers(HttpMethod.GET, "/api/quizzes").authenticated()
+                    .mvcMatchers(HttpMethod.POST, "/api/quizzes").authenticated()
+                    .mvcMatchers(HttpMethod.DELETE, "/api/quizzes/{id}").authenticated()
+                    .and()
+                    .exceptionHandling().accessDeniedHandler(customAccessDeniedHandler)
+                    // other matchers
+                    .and()
+                    .sessionManagement()
+                    .sessionCreationPolicy(SessionCreationPolicy.STATELESS); // no session
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Answers.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import javax.persistence.*;
+    import java.util.Set;
+
+    @Entity
+    public class Answers {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+        private int answer;
+
+        public Answers() {
+        }
+
+        @ManyToMany(mappedBy = "quizAnswers", fetch = FetchType.EAGER )
+        private Set<Quiz> quizzes;
+
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public int getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(int answer) {
+            this.answer = answer;
+        }
+
+        public Set<Quiz> getQuizzes() {
+            return quizzes;
+        }
+
+        public void setQuizzes(Set<Quiz> quizzes) {
+            this.quizzes = quizzes;
+        }
+
+        @Override
+        public String toString() {
+            return "Answers{" +
+                    "id=" + id +
+                    ", answer=" + answer +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/helper/RestAuthenticationEntryPoint.java
+  visible: true
+  text: |+
+    package engine.helper;
+
+    import org.springframework.security.core.AuthenticationException;
+    import org.springframework.security.web.AuthenticationEntryPoint;
+    import org.springframework.stereotype.Component;
+
+    import javax.servlet.ServletException;
+    import javax.servlet.http.HttpServletRequest;
+    import javax.servlet.http.HttpServletResponse;
+    import java.io.IOException;
+
+    @Component
+    public class RestAuthenticationEntryPoint implements AuthenticationEntryPoint {
+
+        @Override
+        public void commence(HttpServletRequest request, HttpServletResponse response, AuthenticationException authException) throws IOException, ServletException {
+            //System.out.println("Exception == "+authException);
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, authException.getMessage());
+            /**
+             response.setContentType("application/json;charset=UTF-8");
+             response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+             response.getWriter().write(Map.of(
+             "message", "Access denied!",
+             "timestamp", LocalDateTime.now(),
+             "error","Forbidden",
+             "status", 403
+
+             ).toString());
+             */
+        }
+    }
+
+  learner_created: true
+- name: src/engine/helper/BCryptEncoderConfig.java
+  visible: true
+  text: |
+    package engine.helper;
+
+    import org.springframework.context.annotation.Bean;
+    import org.springframework.context.annotation.Configuration;
+    import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+    import org.springframework.security.crypto.password.PasswordEncoder;
+
+    @Configuration
+    public class BCryptEncoderConfig {
+
+        @Bean
+        public PasswordEncoder getEncoder() {
+            return new BCryptPasswordEncoder();
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/IOptionsRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Options;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IOptionsRepository extends CrudRepository<Options, Long> {
+    }
+  learner_created: true
+- name: src/engine/helper/IDGen.java
+  visible: true
+  text: |
+    package engine.helper;
+
+    public class IDGen {
+        private static long id = 0;
+
+        public static long getId() {
+            return ++id;
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/IUserRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.User;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IUserRepository extends CrudRepository<User, Long> {
+    }
+  learner_created: true
+- name: src/engine/persistence/QuizRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.database.QuizStore;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public class QuizRepository extends QuizStore {
+    }
+  learner_created: true
+- name: src/engine/persistence/IAnswersRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Answers;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IAnswersRepository extends CrudRepository<Answers, Long> {
+    }
+  learner_created: true
+- name: src/engine/business/QuizService.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import engine.persistence.IAnswersRepository;
+    import engine.persistence.IOptionsRepository;
+    import engine.persistence.IQuizRepository;
+    import engine.persistence.QuizRepository;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.stereotype.Service;
+
+    import java.util.*;
+
+    @Service
+    public class QuizService {
+        //private final QuizRepository quizRepository;
+        private final IQuizRepository quizRepository;
+        private final IAnswersRepository answersRepository;
+        private final IOptionsRepository optionsRepository;
+
+        @Autowired
+        public QuizService(IOptionsRepository optionsRepository,
+                           IAnswersRepository answersRepository,
+                           IQuizRepository quizRepository) {
+            this.quizRepository = quizRepository;
+            this.answersRepository = answersRepository;
+            this.optionsRepository = optionsRepository;
+        }
+
+        public Quiz save(Quiz toSave) {
+            return quizRepository.save(toSave);
+        }
+
+        public void delete(long id) {
+            Quiz quizToDelete = findQuizById(id);
+            deleteQuestions(quizToDelete);
+            quizRepository.delete(quizToDelete);
+            deleteAnswers(quizToDelete);
+        }
+
+        public void deleteQuestions(Quiz toDelete){
+
+            List<Options> optionsList = toDelete.getQuizOptions();
+            for (Options o: optionsList) {
+                optionsRepository.delete(o);
+            }
+        }
+
+        public void deleteAnswers(Quiz toDelete){
+            Set<Answers> answersSet = toDelete.getQuizAnswers();
+
+
+            for (Answers a: answersSet) {
+                answersRepository.delete(a);
+            }
+        }
+
+        public Quiz saveQuiz(Quiz toSave) {
+            updateQuizAnswers(toSave);
+            Quiz savedQuiz = quizRepository.save(toSave);
+            updateQuizOptions(savedQuiz);
+            return savedQuiz;
+        }
+
+        public Answers saveAnswers(Answers toSave) {
+            return answersRepository.save(toSave);
+        }
+
+        public Options saveOptions(Options toSave) {
+            return optionsRepository.save(toSave);
+        }
+
+        public Quiz findQuizById(long id) {
+            Optional<Quiz> quiz = quizRepository.findById(id);
+            Quiz quizToReturn = quiz.orElse(null);
+            if (quizToReturn != null) {
+                updateQuiz(quizToReturn);
+            }
+            return quizToReturn;
+        }
+
+        public boolean hasQuiz(long id) {
+            Quiz quiz = findQuizById(id);
+            if (quiz != null) {
+                return true;
+            }
+            return false;
+        }
+
+        private void updateQuiz(Quiz quizToUpdate) {
+            Set<Answers> answersSet = quizToUpdate.getQuizAnswers();
+            List<Options> optionsList = quizToUpdate.getQuizOptions();
+
+            for (Answers a: answersSet) {
+                quizToUpdate.addAnswer(a.getAnswer());
+            }
+
+            for (Options o: optionsList) {
+                quizToUpdate.addOption(o.getOption());
+            }
+        }
+
+        public Collection<Object> all() {
+            Collection<Object> quizCollection = new ArrayList<>();
+            quizRepository.findAll().forEach(quiz -> {
+                updateQuiz(quiz);
+                quizCollection.add(Map.of(
+                        "id", quiz.getId(),
+                        "title", quiz.getTitle(),
+                        "text", quiz.getText(),
+                        "options",quiz.getOptions()
+                ));
+            });
+            return quizCollection;
+        }
+
+        private void updateQuizAnswers(Quiz quizToUpdate) {
+            List<Integer> answers = quizToUpdate.getAnswer();
+
+            for (Integer i: answers) {
+                Answers answerToSave = new Answers();
+                answerToSave.setAnswer(i);
+                Answers savedAnswer = saveAnswers(answerToSave);
+                quizToUpdate.addQuizAnswer(savedAnswer);
+            }
+
+
+        }
+
+        private void updateQuizOptions(Quiz quizToUpdate) {
+            List<String> options = quizToUpdate.getOptions();
+            for (String s: options) {
+                Options optionToSave = new Options();
+                optionToSave.setOption(s);
+                optionToSave.setQuiz(quizToUpdate);
+                Options savedOption = saveOptions(optionToSave);
+                quizToUpdate.addQuizOption(savedOption);
+            }
+        }
+    }
+  learner_created: true
+- name: src/engine/business/QuizPagingAndSortingService.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import engine.persistence.*;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.data.domain.Page;
+    import org.springframework.data.domain.PageRequest;
+    import org.springframework.data.domain.Pageable;
+    import org.springframework.data.domain.Sort;
+    import org.springframework.stereotype.Service;
+
+    import java.util.ArrayList;
+    import java.util.List;
+
+    @Service
+    public class QuizPagingAndSortingService {
+        private final IQuizRepository quizRepository;
+        private final IQuizPagingAndSortingRepository quizPagingAndSortingRepository;
+        private final IAnswersRepository answersRepository;
+        private final IOptionsRepository optionsRepository;
+
+        @Autowired
+        public QuizPagingAndSortingService(IOptionsRepository optionsRepository,
+                                           IAnswersRepository answersRepository,
+                                           IQuizRepository quizRepository,
+                                           IQuizPagingAndSortingRepository quizPagingAndSortingRepository) {
+            this.quizRepository = quizRepository;
+            this.answersRepository = answersRepository;
+            this.optionsRepository = optionsRepository;
+            this.quizPagingAndSortingRepository = quizPagingAndSortingRepository;
+        }
+
+        public List<Quiz> getAllQuiz(Integer pageNo, Integer pageSize, String sortBy)
+        {
+            Pageable paging = PageRequest.of(pageNo, pageSize, Sort.by(sortBy));
+
+            Page<Quiz> pagedResult = quizPagingAndSortingRepository.findAll(paging);
+
+            if(pagedResult.hasContent()) {
+                return pagedResult.getContent();
+            } else {
+                return new ArrayList<>();
+            }
+        }
+
+    }
+  learner_created: true
+- name: src/engine/presentation/UserController.java
+  visible: true
+  text: |
+    package engine.presentation;
+
+    import engine.business.User;
+    import engine.business.UserService;
+    import engine.helper.BCryptEncoderConfig;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.web.bind.annotation.PostMapping;
+    import org.springframework.web.bind.annotation.RequestBody;
+    import org.springframework.web.bind.annotation.RestController;
+
+    import javax.validation.Valid;
+    import java.util.Map;
+
+    @RestController
+    public class UserController {
+
+        private final UserService userService;
+
+        @Autowired
+        BCryptEncoderConfig b;
+
+        @Autowired
+        public UserController(UserService userService) {
+            this.userService = userService;
+        }
+
+        @PostMapping("/api/register")
+        public ResponseEntity<Object> register(@Valid @RequestBody User user) {
+            System.out.println("Test User "+user);
+            if (userService.hasUser(user.getEmail())) {
+                return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+            }
+
+            user.setPassword(b.getEncoder().encode(user.getPassword()));
+            userService.save(user);
+            return new ResponseEntity<>(HttpStatus.OK);
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/IQuizPagingAndSortingRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Quiz;
+    import org.springframework.data.repository.PagingAndSortingRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IQuizPagingAndSortingRepository extends PagingAndSortingRepository<Quiz, Long> {
+    }
+  learner_created: true
+- name: src/engine/business/UserDetailServiceImpl.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.security.core.userdetails.UserDetails;
+    import org.springframework.security.core.userdetails.UserDetailsService;
+    import org.springframework.security.core.userdetails.UsernameNotFoundException;
+    import org.springframework.stereotype.Service;
+
+    import javax.servlet.http.HttpServletRequest;
+
+    @Service
+    public class UserDetailServiceImpl implements UserDetailsService {
+        @Autowired
+        UserService userService;
+
+        @Autowired
+        private HttpServletRequest request;
+
+        @Override
+        public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+
+            User user = userService.findUserByEmail(email);
+
+            if (user == null) {
+                throw new UsernameNotFoundException("Not found: " + email);
+            }
+
+            return new UserDetailImpl(user);
+        }
+    }
+  learner_created: true
+- name: src/engine/business/UserDetailImpl.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import org.springframework.security.core.GrantedAuthority;
+    import org.springframework.security.core.authority.SimpleGrantedAuthority;
+    import org.springframework.security.core.userdetails.UserDetails;
+
+    import java.util.ArrayList;
+    import java.util.Collection;
+    import java.util.Collections;
+    import java.util.Set;
+
+    public class UserDetailImpl implements UserDetails {
+        private final String username;
+        private final String password;
+        private final User user;
+        //private final List<GrantedAuthority> rolesAndAuthorities;
+
+        public UserDetailImpl(User user) {
+            username = user.getEmail();
+            password = user.getPassword();
+            this.user = user;
+            //rolesAndAuthorities = List.of(new SimpleGrantedAuthority(""));
+        }
+
+        public User getUser() {
+            return user;
+        }
+
+        @Override
+        public Collection<? extends GrantedAuthority> getAuthorities() {
+            //return rolesAndAuthorities;
+            //return Collections.emptyList();
+
+            Collection<GrantedAuthority> authorities = new ArrayList<>(1);
+            authorities.add(new SimpleGrantedAuthority("USER_ROLE"));
+
+            return authorities;
+        }
+
+        @Override
+        public String getPassword() {
+            return password;
+        }
+
+        @Override
+        public String getUsername() {
+            return username;
+        }
+
+        // 4 remaining methods that just return true
+        @Override
+        public boolean isAccountNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isAccountNonLocked() {
+            return true;
+        }
+
+        @Override
+        public boolean isCredentialsNonExpired() {
+            return true;
+        }
+
+        @Override
+        public boolean isEnabled() {
+            return true;
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Quiz.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import com.fasterxml.jackson.annotation.JsonIgnore;
+
+    import javax.persistence.*;
+    import javax.validation.constraints.NotEmpty;
+    import javax.validation.constraints.Size;
+    import java.util.ArrayList;
+    import java.util.HashSet;
+    import java.util.List;
+    import java.util.Set;
+
+    @Entity
+    public class Quiz {
+
+        @NotEmpty
+        private String title;
+        @NotEmpty
+        private String text;
+        @Size(min = 2)
+
+        @Transient
+        private List<String> options;
+        @Transient
+        private List<Integer> answer;
+
+        @OneToMany(mappedBy = "quiz")
+        private List<Options> quizOptions = new ArrayList<>();
+
+        @ManyToOne
+        @JoinColumn(name = "user_id")
+        private User user;
+
+        @ManyToMany(cascade = {
+                CascadeType.PERSIST,
+                CascadeType.MERGE
+        }, fetch = FetchType.EAGER)
+        @JoinTable(name = "quiz_answers",
+                joinColumns =@JoinColumn(name = "quiz_id"),
+                inverseJoinColumns = @JoinColumn(name = "answer_id"
+                ))
+        private Set<Answers> quizAnswers = new HashSet<>();
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+
+        public Quiz() {
+            options = new ArrayList<>(4);
+            answer = new ArrayList<>(4);
+            quizOptions = new ArrayList<>(4);
+        }
+
+        public String getTitle() {
+            return title;
+        }
+
+        public void setTitle(String title) {
+            this.title = title;
+        }
+
+        public String getText() {
+            return text;
+        }
+
+        public void setText(String text) {
+            this.text = text;
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(Long id) {
+            this.id = id;
+        }
+
+        public List<Options> getQuizOptions() {
+            return quizOptions;
+        }
+
+        public void setQuizOptions(List<Options> quizOptions) {
+            this.quizOptions = quizOptions;
+        }
+
+        public Set<Answers> getQuizAnswers() {
+            return quizAnswers;
+        }
+
+        public void setQuizAnswers(Set<Answers> quizAnswers) {
+            this.quizAnswers = quizAnswers;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public List<String> getOptions() {
+            return options;
+        }
+
+        public void setOptions(List<String> options) {
+            this.options = options;
+        }
+
+        public List<Integer> getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(List<Integer> answer) {
+            this.answer = answer;
+        }
+
+        public void addQuizAnswer(Answers answerToAdd) {
+            quizAnswers.add(answerToAdd);
+        }
+
+        public void addQuizOption(Options optionToAdd) {
+            quizOptions.add(optionToAdd);
+        }
+
+        public void addAnswer(int i) {
+            answer.add(i);
+        }
+
+        public void addOption(String s) {
+            options.add(s);
+        }
+
+        public User getUser() {
+            return user;
+        }
+
+        public void setUser(User user) {
+            this.user = user;
+        }
+
+        @Override
+        public String toString() {
+            return "Quiz{" +
+                    "title='" + title + '\'' +
+                    ", text='" + text + '\'' +
+                    ", options=" + options +
+                    ", answer=" + answer +
+                    ", id=" + id +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/business/UserService.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import engine.persistence.IUserRepository;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.stereotype.Service;
+
+    import java.util.ArrayList;
+    import java.util.List;
+    import java.util.Optional;
+
+    @Service
+    public class UserService {
+
+        private final IUserRepository userRepository;
+
+        @Autowired
+        public UserService(IUserRepository userRepository) {
+            this.userRepository = userRepository;
+        }
+
+        public User findUserByEmail(String email) {
+            List<User> list = new ArrayList<>();
+            userRepository.findAll().forEach(user -> list.add(user));
+
+            Optional<User> matchingUser = list.stream().
+                    filter(u -> u.getEmail().equalsIgnoreCase(email)).
+                    findFirst();
+            User user = null;
+            if (matchingUser.isPresent()){
+                user = matchingUser.get();
+                user.setEmail(email);
+            }
+            //return matchingUser.orElse(null);
+            return user;
+        }
+
+        public User findUserById(long id) {
+            return userRepository.findById(id).orElse(null);
+        }
+
+        public User save(User toSave) {
+            return userRepository.save(toSave);
+        }
+
+        public boolean hasUser(String email) {
+            List<User> list = new ArrayList<>();
+            userRepository.findAll().forEach(us -> list.add(us));
+
+            Optional<User> matchingUser = list.stream().
+                    filter(u -> u.getEmail().equalsIgnoreCase(email)).
+                    findFirst();
+
+            return matchingUser.isPresent();
+        }
+    }
+  learner_created: true
+- name: src/engine/presentation/QuizController.java
+  visible: true
+  text: |
+    package engine.presentation;
+
+    import engine.business.*;
+    import engine.helper.IDGen;
+    import engine.database.QuizStore;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.http.HttpStatus;
+    import org.springframework.http.ResponseEntity;
+    import org.springframework.security.core.annotation.AuthenticationPrincipal;
+    import org.springframework.web.bind.annotation.*;
+
+    import javax.validation.Valid;
+    import java.util.*;
+
+    @RestController
+    public class QuizController {
+
+        @Autowired
+        QuizService quizService;
+
+        @Autowired
+        QuizPagingAndSortingService quizPagingAndSortingService;
+
+        @Autowired
+        UserService userService;
+
+        @GetMapping("/api/quizzes/{id}")
+        public Object getQuiz(@PathVariable int id) {
+            Quiz q = quizService.findQuizById(id);
+            if (q == null) {
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            return new ResponseEntity<>(Map.of(
+                    "id", q.getId(),
+                    "title", q.getTitle(),
+                    "text", q.getText(),
+                    "options",q.getOptions()
+            ), HttpStatus.OK);
+        }
+
+        @PostMapping("/api/quizzes")
+        public Object postQuizzes(@AuthenticationPrincipal UserDetailImpl details, @Valid @RequestBody Quiz quiz) {
+            //quiz.setId(IDGen.getId());
+
+            if (details == null) {
+                return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+            } else {
+
+                User user = details.getUser();
+                quiz.setUser(user);
+            }
+
+            Quiz savedQuiz = quizService.saveQuiz(quiz);
+
+            return new ResponseEntity<>(Map.of(
+                    "id", savedQuiz.getId(),
+                    "title", savedQuiz.getTitle(),
+                    "text", savedQuiz.getText(),
+                    "options",savedQuiz.getOptions()
+            ), HttpStatus.OK);
+        }
+
+        @PostMapping("/api/quizzes/{id}/solve")
+        public Object postAnswer( @PathVariable int id, @RequestBody Answer answer) {
+
+            Quiz q = quizService.findQuizById(id);
+
+            System.out.println("post answer: "+answer+" question" +q);
+            if (q == null){
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+            List<Integer> aList = q.getAnswer();
+            List<Integer> sList = answer.getAnswer();
+            Collections.sort(aList);
+            Collections.sort(sList);
+            if(aList == null) {
+                if (sList.size() == 0) {
+                    return Map.of(
+                            "success",true,
+                            "feedback", "Congratulations, you're right!"
+                    );
+                } else {
+                    return Map.of(
+                            "success",false,
+                            "feedback", "Wrong answer! Please, try again."
+                    );
+                }
+            }
+
+            if (aList.equals(sList)) {
+
+                return Map.of(
+                        "success",true,
+                        "feedback", "Congratulations, you're right!"
+                );
+            } else {
+                return Map.of(
+                        "success",false,
+                        "feedback", "Wrong answer! Please, try again."
+                );
+            }
+
+        }
+
+        @GetMapping("/api/quizzes")
+        public Object getAllQuizzes(
+                @RequestParam(defaultValue = "0") Integer page,
+                @RequestParam(defaultValue = "10") Integer size,
+                @RequestParam(defaultValue = "id") String sort
+        ) {
+            //return quizService.all();
+
+            return  quizPagingAndSortingService.getAllQuiz(page, size, sort);
+        }
+
+        @DeleteMapping("/api/quizzes/{id}")
+        public Object deleteQuiz(@AuthenticationPrincipal UserDetailImpl details, @PathVariable int id) {
+            if (details == null) {
+                return new ResponseEntity<>(Map.of("error", "email not valid"), HttpStatus.BAD_REQUEST);
+            } else {
+
+                User user = details.getUser();
+                Quiz quiz = quizService.findQuizById(id);
+
+                if (quiz != null) {
+                    User userWhomSavedQuiz = userService.findUserById(quiz.getUser().getId());
+                    if (user.getEmail().equalsIgnoreCase(userWhomSavedQuiz.getEmail())) {
+                        quizService.delete(id);
+                        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+                    } else {
+                        return new ResponseEntity<>(HttpStatus.FORBIDDEN);
+                    }
+                }
+
+                return new ResponseEntity<>(HttpStatus.NOT_FOUND);
+            }
+
+
+        }
+
+
+
+    }
+  learner_created: true
+- name: src/engine/business/User.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import javax.persistence.*;
+    import javax.validation.constraints.*;
+    import java.util.ArrayList;
+    import java.util.List;
+
+    @Entity
+    public class User {
+
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+
+        //@NotNull
+        @Pattern(regexp = "^\\w+([\\.-]?\\w+)*@\\w+([\\.-]?\\w+)*(\\.\\w{2,3})+$")
+        private String email;
+        @NotNull
+        @NotEmpty
+        @Size(min = 5)
+        private String password;
+
+        @OneToMany(mappedBy = "user")
+        private List<Quiz> userQuizzes = new ArrayList<>();
+
+        public User() {
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public List<Quiz> getUserQuizzes() {
+            return userQuizzes;
+        }
+
+        public void setUserQuizzes(List<Quiz> userQuizzes) {
+            this.userQuizzes = userQuizzes;
+        }
+
+        @Override
+        public String toString() {
+            return "User{" +
+                    "id=" + id +
+                    ", email='" + email + '\'' +
+                    ", password='" + password + '\'' +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Answer.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import java.util.List;
+
+    public class Answer {
+        private List<Integer> answer;
+
+        public Answer(){}
+
+        public List<Integer> getAnswer() {
+            return answer;
+        }
+
+        public void setAnswer(List<Integer> answer) {
+            this.answer = answer;
+        }
+
+        @Override
+        public String toString() {
+            return "Answer{" +
+                    "answer=" + answer +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/business/Options.java
+  visible: true
+  text: |
+    package engine.business;
+
+    import javax.persistence.*;
+
+    @Entity
+    public class Options {
+        @Id
+        @GeneratedValue(strategy = GenerationType.IDENTITY)
+        private long id;
+        private String option;
+
+        @ManyToOne
+        @JoinColumn(name = "quiz_id")
+        private Quiz quiz;
+
+        public Options() {
+        }
+
+        public long getId() {
+            return id;
+        }
+
+        public void setId(long id) {
+            this.id = id;
+        }
+
+        public String getOption() {
+            return option;
+        }
+
+        public void setOption(String option) {
+            this.option = option;
+        }
+
+        public Quiz getQuiz() {
+            return quiz;
+        }
+
+        public void setQuiz(Quiz quiz) {
+            this.quiz = quiz;
+        }
+
+        @Override
+        public String toString() {
+            return "Options{" +
+                    "id=" + id +
+                    ", option='" + option + '\'' +
+                    '}';
+        }
+    }
+  learner_created: true
+- name: src/engine/helper/CustomAccessDeniedHandler.java
+  visible: true
+  text: |-
+    package engine.helper;
+
+
+    import engine.business.User;
+    import engine.business.UserDetailImpl;
+    import org.springframework.beans.factory.annotation.Autowired;
+    import org.springframework.security.access.AccessDeniedException;
+    import org.springframework.security.core.Authentication;
+    import org.springframework.security.core.context.SecurityContextHolder;
+    import org.springframework.security.web.access.AccessDeniedHandler;
+    import org.springframework.stereotype.Component;
+
+    import javax.servlet.ServletException;
+    import javax.servlet.http.HttpServletRequest;
+    import javax.servlet.http.HttpServletResponse;
+    import java.io.IOException;
+    import java.time.LocalDateTime;
+
+    @Component
+    public class CustomAccessDeniedHandler implements AccessDeniedHandler {
+
+        @Override
+        public void handle(
+                HttpServletRequest request,
+                HttpServletResponse response,
+                AccessDeniedException accessDeniedException
+        ) throws IOException, ServletException {
+
+            Authentication auth
+                    = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null) {
+                User user = ((UserDetailImpl) auth.getPrincipal()).getUser();
+
+                /*response.setContentType("application/json;charset=UTF-8");
+                response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                response.getWriter().write(new JSONObject()
+                        .put("message", "Access Denied!")
+                        .put("timestamp", LocalDateTime.now())
+                        .put("error","Forbidden")
+                        .put("status", 403)
+                        .put("path", request.getRequestURI())
+                        .toString());*/
+
+            }
+        }
+    }
+  learner_created: true
+- name: src/engine/database/QuizStore.java
+  visible: true
+  text: |
+    package engine.database;
+
+    import engine.business.Quiz;
+    import org.springframework.stereotype.Component;
+
+    import java.util.Collection;
+    import java.util.Map;
+    import java.util.concurrent.ConcurrentHashMap;
+
+    @Component
+    public class QuizStore {
+
+        private Map<Long, Quiz> quizzes = new ConcurrentHashMap<>();;
+
+        {
+           /** Quiz quiz = new Quiz();
+            quiz.setId(IDGen.getId());
+            quiz.setTitle("The Java Logo");
+            quiz.setText("What is depicted on the Java logo?");
+            quiz.addOption("Robot");
+            quiz.addOption("Tea leaf");
+            quiz.addOption("Cup of coffee");
+            quiz.addOption("Bug");
+            quiz.setAnswer(2);
+            quizzes.put(quiz.getId(), quiz);*/
+        }
+
+        public void addQuiz(Quiz quiz) {
+            System.out.println(quiz);
+            quizzes.put(quiz.getId(), quiz);
+        }
+
+        public Quiz getQuiz(long id) {
+            System.out.println(id);
+            return quizzes.get(id);
+        }
+
+        public Collection<Quiz> getAllQuiz() {
+            Collection<Quiz> list =  quizzes.values();
+            return list;
+        }
+    }
+  learner_created: true
+- name: src/engine/persistence/IQuizRepository.java
+  visible: true
+  text: |
+    package engine.persistence;
+
+    import engine.business.Quiz;
+    import org.springframework.data.repository.CrudRepository;
+    import org.springframework.stereotype.Repository;
+
+    @Repository
+    public interface IQuizRepository extends CrudRepository<Quiz, Long> {
+    }
+  learner_created: true
+- name: src/engine/business/Completion.java
+  visible: true
+  learner_created: true
+- name: src/engine/persistence/ICompletionRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/persistence/ICompletionPagingAndSortingRepository.java
+  visible: true
+  learner_created: true
+- name: src/engine/business/CompletionService.java
+  visible: true
+  learner_created: true
 feedback_link: https://hyperskill.org/learn/step/8257#comment
-status: Unchecked
+status: Failed
+feedback:
+  message: |-
+    Wrong answer in test #161
+
+    The JSON object at key content has an incorrect length: should be equal to 5, found 4
+
+    Full JSON:
+    {
+      &quot;content&quot;: [
+        {
+          &quot;id&quot;: 6,
+          &quot;completedAt&quot;: &quot;2022-02-17T16:41:48.013+00:00&quot;
+        },
+        {
+          &quot;id&quot;: 6,
+          &quot;completedAt&quot;: &quot;2022-02-17T16:41:39.787+00:00&quot;
+        },
+        {
+          &quot;id&quot;: 5,
+          &quot;completedAt&quot;: &quot;2022-02-17T16:41:37.786+00:00&quot;
+        },
+        {
+          &quot;id&quot;: 2,
+          &quot;completedAt&quot;: &quot;2022-02-17T16:41:31.053+00:00&quot;
+        }
+      ]
+    }
+
+    Please find below the output of your program during this failed test.
+
+    ---
+
+    [last 250 lines of output are shown, 684 skipped]
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 1, 0], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[1, 0, 3], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[1]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 1, 0], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[2]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[0, 3, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[1, 3, 0], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[1, 0, 3], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 2]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[0, 3, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[1, 2]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[1, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[2, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 1, 0], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1, 2]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[0, 1, 3], id=7}
+    Hibernate: insert into completion (id, completed_at, quiz_id, user_id) values (null, ?, ?, ?)
+    Completion{id=9, completedAt=Thu Feb 17 17:41:43 WAT 2022}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[1, 2, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[1, 0, 3], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1, 2, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_, quiz0_.text as text2_3_, quiz0_.title as title3_3_, quiz0_.user_id as user_id4_3_ from quiz quiz0_ order by quiz0_.id asc limit ?
+    Hibernate: select user0_.id as id1_5_0_, user0_.email as email2_5_0_, user0_.password as password3_5_0_ from user user0_ where user0_.id=?
+    Hibernate: select user0_.id as id1_5_0_, user0_.email as email2_5_0_, user0_.password as password3_5_0_ from user user0_ where user0_.id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    2022-02-17 17:41:44.448  INFO 15608 --- [       Thread-7] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit &#39;default&#39;
+    2022-02-17 17:41:44.449  INFO 15608 --- [       Thread-7] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown initiated...
+    2022-02-17 17:41:44.505  INFO 15608 --- [       Thread-7] com.zaxxer.hikari.HikariDataSource       : HikariPool-2 - Shutdown completed.
+
+      .   ____          _            __ _ _
+     /\\ / ___&#39;_ __ _ _(_)_ __  __ _ \ \ \ \
+    ( ( )\___ | &#39;_ | &#39;_| | &#39;_ \/ _` | \ \ \ \
+     \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+      &#39;  |____| .__|_| |_|_| |_\__, | / / / /
+     =========|_|==============|___/=/_/_/_/
+     :: Spring Boot ::                (v2.5.6)
+
+    2022-02-17 17:41:44.585  INFO 15608 --- [    Test worker] engine.WebQuizEngine                     : Starting WebQuizEngine using Java 17.0.1 on PXSTAR-NG with PID 15608 (started by eneye in C:\Users\eneye\IdeaProjects\Web Quiz Engine\Web Quiz Engine\task)
+    2022-02-17 17:41:44.585  INFO 15608 --- [    Test worker] engine.WebQuizEngine                     : No active profile set, falling back to default profiles: default
+    2022-02-17 17:41:45.436  INFO 15608 --- [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+    2022-02-17 17:41:45.520  INFO 15608 --- [    Test worker] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 83 ms. Found 7 JPA repository interfaces.
+    2022-02-17 17:41:45.823  INFO 15608 --- [    Test worker] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port(s): 8889 (http)
+    2022-02-17 17:41:45.825  INFO 15608 --- [    Test worker] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+    2022-02-17 17:41:45.825  INFO 15608 --- [    Test worker] org.apache.catalina.core.StandardEngine  : Starting Servlet engine: [Apache Tomcat/9.0.54]
+    2022-02-17 17:41:45.908  INFO 15608 --- [    Test worker] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+    2022-02-17 17:41:45.908  INFO 15608 --- [    Test worker] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 1316 ms
+    2022-02-17 17:41:45.979  INFO 15608 --- [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Starting...
+    2022-02-17 17:41:46.007  INFO 15608 --- [    Test worker] com.zaxxer.hikari.HikariDataSource       : HikariPool-3 - Start completed.
+    2022-02-17 17:41:46.008  INFO 15608 --- [    Test worker] o.s.b.a.h2.H2ConsoleAutoConfiguration    : H2 console available at &#39;/h2-console&#39;. Database available at &#39;jdbc:h2:file:../quizdb&#39;
+    2022-02-17 17:41:46.095  INFO 15608 --- [    Test worker] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+    2022-02-17 17:41:46.118  INFO 15608 --- [    Test worker] org.hibernate.dialect.Dialect            : HHH000400: Using dialect: org.hibernate.dialect.H2Dialect
+    2022-02-17 17:41:46.374  INFO 15608 --- [    Test worker] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000490: Using JtaPlatform implementation: [org.hibernate.engine.transaction.jta.platform.internal.NoJtaPlatform]
+    2022-02-17 17:41:46.374  INFO 15608 --- [    Test worker] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit &#39;default&#39;
+    2022-02-17 17:41:46.600  WARN 15608 --- [    Test worker] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+    2022-02-17 17:41:46.956  INFO 15608 --- [    Test worker] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 14 endpoint(s) beneath base path &#39;/actuator&#39;
+    2022-02-17 17:41:47.003  INFO 15608 --- [    Test worker] o.s.s.web.DefaultSecurityFilterChain     : Will secure any request with [org.springframework.security.web.context.request.async.WebAsyncManagerIntegrationFilter@9fe1e14, org.springframework.security.web.context.SecurityContextPersistenceFilter@71443983, org.springframework.security.web.header.HeaderWriterFilter@169f4152, org.springframework.security.web.authentication.logout.LogoutFilter@20c4be8d, org.springframework.security.web.authentication.www.BasicAuthenticationFilter@590182a6, org.springframework.security.web.savedrequest.RequestCacheAwareFilter@105d2c27, org.springframework.security.web.servletapi.SecurityContextHolderAwareRequestFilter@7ca46aaf, org.springframework.security.web.authentication.AnonymousAuthenticationFilter@d4e17ec, org.springframework.security.web.session.SessionManagementFilter@3d36204f, org.springframework.security.web.access.ExceptionTranslationFilter@59a71bef, org.springframework.security.web.access.intercept.FilterSecurityInterceptor@5cb6fac3]
+    2022-02-17 17:41:47.227  INFO 15608 --- [    Test worker] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port(s): 8889 (http) with context path &#39;&#39;
+    2022-02-17 17:41:47.243  INFO 15608 --- [    Test worker] engine.WebQuizEngine                     : Started WebQuizEngine in 2.712 seconds (JVM running for 50.109)
+    2022-02-17 17:41:47.257  INFO 15608 --- [nio-8889-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet &#39;dispatcherServlet&#39;
+    2022-02-17 17:41:47.257  INFO 15608 --- [nio-8889-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet &#39;dispatcherServlet&#39;
+    2022-02-17 17:41:47.261  INFO 15608 --- [nio-8889-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 4 ms
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_, quiz0_.text as text2_3_, quiz0_.title as title3_3_, quiz0_.user_id as user_id4_3_ from quiz quiz0_ order by quiz0_.id asc limit ?
+    Hibernate: select user0_.id as id1_5_0_, user0_.email as email2_5_0_, user0_.password as password3_5_0_ from user user0_ where user0_.id=?
+    Hibernate: select user0_.id as id1_5_0_, user0_.email as email2_5_0_, user0_.password as password3_5_0_ from user user0_ where user0_.id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizanswer0_.quiz_id as quiz_id1_4_0_, quizanswer0_.answer_id as answer_i2_4_0_, answers1_.id as id1_0_1_, answers1_.answer as answer2_0_1_ from quiz_answers quizanswer0_ inner join answers answers1_ on quizanswer0_.answer_id=answers1_.id where quizanswer0_.quiz_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[]} questionQuiz{title=&#39;Math4&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2*3, 5*8, 8*0, 1*5], answer=[], id=6}
+    Hibernate: insert into completion (id, completed_at, quiz_id, user_id) values (null, ?, ?, ?)
+    Completion{id=10, completedAt=Thu Feb 17 17:41:48 WAT 2022}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0]} questionQuiz{title=&#39;Math4&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2*3, 5*8, 8*0, 1*5], answer=[], id=6}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1, 2]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[1, 0, 3], id=7}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizoption0_.quiz_id as quiz_id3_2_0_, quizoption0_.id as id1_2_0_, quizoption0_.id as id1_2_1_, quizoption0_.option as option2_2_1_, quizoption0_.quiz_id as quiz_id3_2_1_ from options quizoption0_ where quizoption0_.quiz_id=?
+    post answer: Answer{answer=[0, 1, 3]} questionQuiz{title=&#39;Math5&#39;, text=&#39;Which of the following is equal to 4?&#39;, options=[2^2, 2+2, 2-2, 2*2], answer=[3, 0, 1], id=7}
+    Hibernate: insert into completion (id, completed_at, quiz_id, user_id) values (null, ?, ?, ?)
+    Completion{id=11, completedAt=Thu Feb 17 17:41:48 WAT 2022}
+    Hibernate: select user0_.id as id1_5_, user0_.email as email2_5_, user0_.password as password3_5_ from user user0_
+    Hibernate: select completion0_.id as id1_1_, completion0_.completed_at as complete2_1_, completion0_.quiz_id as quiz_id4_1_, completion0_.user_id as user_id3_1_ from completion completion0_ order by completion0_.id desc limit ?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quiz0_.id as id1_3_0_, quiz0_.text as text2_3_0_, quiz0_.title as title3_3_0_, quiz0_.user_id as user_id4_3_0_, quizanswer1_.quiz_id as quiz_id1_4_1_, answers2_.id as answer_i2_4_1_, answers2_.id as id1_0_2_, answers2_.answer as answer2_0_2_, user3_.id as id1_5_3_, user3_.email as email2_5_3_, user3_.password as password3_5_3_ from quiz quiz0_ left outer join quiz_answers quizanswer1_ on quiz0_.id=quizanswer1_.quiz_id left outer join answers answers2_ on quizanswer1_.answer_id=answers2_.id left outer join user user3_ on quiz0_.user_id=user3_.id where quiz0_.id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select quizzes0_.answer_id as answer_i2_4_0_, quizzes0_.quiz_id as quiz_id1_4_0_, quiz1_.id as id1_3_1_, quiz1_.text as text2_3_1_, quiz1_.title as title3_3_1_, quiz1_.user_id as user_id4_3_1_, user2_.id as id1_5_2_, user2_.email as email2_5_2_, user2_.password as password3_5_2_ from quiz_answers quizzes0_ inner join quiz quiz1_ on quizzes0_.quiz_id=quiz1_.id left outer join user user2_ on quiz1_.user_id=user2_.id where quizzes0_.answer_id=?
+    Hibernate: select count(completion0_.id) as col_0_0_ from completion completion0_
+  time: Thu, 17 Feb 2022 16:41:49 UTC
 record: -1

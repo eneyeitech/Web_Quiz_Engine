@@ -28,7 +28,7 @@ public class Quiz {
     private List<Options> quizOptions = new ArrayList<>();
 
     @OneToMany(mappedBy = "quiz")
-    private List<Options> quizCompletion = new ArrayList<>();
+    private List<Completion> quizCompletion = new ArrayList<>();
 
 
     @ManyToOne
@@ -139,11 +139,11 @@ public class Quiz {
         this.user = user;
     }
 
-    public List<Options> getQuizCompletion() {
+    public List<Completion> getQuizCompletion() {
         return quizCompletion;
     }
 
-    public void setQuizCompletion(List<Options> quizCompletion) {
+    public void setQuizCompletion(List<Completion> quizCompletion) {
         this.quizCompletion = quizCompletion;
     }
 

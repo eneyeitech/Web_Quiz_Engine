@@ -175,7 +175,7 @@ public class QuizController {
     @GetMapping("/api/quizzes/completed")
     public Object getAllCompletions(
             @RequestParam(defaultValue = "0") Integer page,
-            @RequestParam(defaultValue = "10") Integer size,
+            @RequestParam(defaultValue = "20") Integer size,
             @RequestParam(defaultValue = "id") String sort
     ) {
         //return quizService.all();

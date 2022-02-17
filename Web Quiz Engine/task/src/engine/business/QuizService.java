@@ -1,9 +1,6 @@
 package engine.business;
 
-import engine.persistence.IAnswersRepository;
-import engine.persistence.IOptionsRepository;
-import engine.persistence.IQuizRepository;
-import engine.persistence.QuizRepository;
+import engine.persistence.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,14 +12,17 @@ public class QuizService {
     private final IQuizRepository quizRepository;
     private final IAnswersRepository answersRepository;
     private final IOptionsRepository optionsRepository;
+    private final ICompletionRepository completionRepository;
 
     @Autowired
     public QuizService(IOptionsRepository optionsRepository,
                        IAnswersRepository answersRepository,
-                       IQuizRepository quizRepository) {
+                       IQuizRepository quizRepository,
+                       ICompletionRepository completionRepository) {
         this.quizRepository = quizRepository;
         this.answersRepository = answersRepository;
         this.optionsRepository = optionsRepository;
+        this.completionRepository = completionRepository;
     }
 
     public Quiz save(Quiz toSave) {
@@ -31,12 +31,21 @@ public class QuizService {
 
     public void delete(long id) {
         Quiz quizToDelete = findQuizById(id);
-        deleteQuestions(quizToDelete);
+        deleteOptions(quizToDelete);
+        deleteCompletions(quizToDelete);
         quizRepository.delete(quizToDelete);
         deleteAnswers(quizToDelete);
     }
 
-    public void deleteQuestions(Quiz toDelete){
+    public void deleteCompletions(Quiz toDelete){
+
+        List<Completion> completionList = toDelete.getQuizCompletion();
+        for (Completion c: completionList) {
+            completionRepository.delete(c);
+        }
+    }
+
+    public void deleteOptions(Quiz toDelete){
 
         List<Options> optionsList = toDelete.getQuizOptions();
         for (Options o: optionsList) {
